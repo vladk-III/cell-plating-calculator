@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cell Plating Calculator</title>
+<meta name="theme-color" content="#BE3E2D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Plating">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
 <style>
 :root { color-scheme: light; }
@@ -111,6 +119,16 @@ dl > div.key dd { color: var(--accent); font-weight: 600; }
 .recipe strong { font-family: var(--font-mono); font-weight: 500; white-space: nowrap; }
 .note { background: var(--warn-bg); color: var(--warn-fg); border-radius: 8px; padding: 10px 14px; font-size: 13.5px; }
 .err { color: var(--accent); font-weight: 600; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.btn {
+  font: inherit; font-weight: 600; font-size: 14px; line-height: 1.2;
+  padding: 10px 16px; border-radius: 6px; border: 1px solid var(--accent);
+  background: var(--accent); color: var(--accent-ink); cursor: pointer; text-decoration: none;
+  display: inline-block;
+}
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.help { margin-top: 12px; max-width: 62ch; background: var(--accent-soft); border-radius: 8px; padding: 12px 14px; font-size: 14px; }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -120,6 +138,11 @@ dl > div.key dd { color: var(--accent); font-weight: 600; }
   <header>
     <h1>Cell Plating Calculator</h1>
     <p>Enter the cells you isolated. The page returns how many wells you can seed and how much M-CSF to add so each well reaches the final concentration.</p>
+    <div class="actions" id="actions">
+      <button class="btn" id="install" type="button">Install app</button>
+      <a class="btn ghost" id="dl" href="index.html" download="cell-plating-calculator.html">Download file</a>
+    </div>
+    <p class="help" id="help" hidden></p>
   </header>
 
   <div class="grid">
@@ -322,6 +345,49 @@ dl > div.key dd { color: var(--accent); font-weight: 600; }
     $(id).addEventListener('change', run);
   });
   run();
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  });
+}
+</script>
+
+<script>
+(function () {
+  var actions = document.getElementById('actions');
+  var help = document.getElementById('help');
+  var deferred = null;
+
+  var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  if (standalone) { actions.hidden = true; return; }
+
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; });
+  window.addEventListener('appinstalled', function () { actions.hidden = true; help.hidden = true; });
+
+  document.getElementById('install').addEventListener('click', function () {
+    if (deferred) {
+      deferred.prompt();
+      deferred = null;
+      return;
+    }
+    var ua = navigator.userAgent;
+    var iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var safari = /Safari/.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg/.test(ua);
+    var msg;
+    if (iOS) {
+      msg = 'On iPhone or iPad, open this page in Safari, tap the Share button, then tap "Add to Home Screen".';
+    } else if (safari) {
+      msg = 'In Safari on Mac, choose File, then "Add to Dock".';
+    } else {
+      msg = 'Use your browser\'s install option, usually an icon at the right end of the address bar or an "Install" item in the menu.';
+    }
+    help.textContent = msg;
+    help.hidden = false;
+  });
 })();
 </script>
 </body>
