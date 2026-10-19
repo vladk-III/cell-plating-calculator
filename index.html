@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cell Plating Calculator</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Schibsted+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+:root { color-scheme: light; }
+body { margin: 0; }
+img { max-width: 100%; }
+/* Layout: inputs column beside a results column; stacks to one column on phones.
+   Palette: bench-cool neutrals, with phenol-red as the single accent. */
+:root {
+  --bg: #F2F5F6;
+  --surface: #FFFFFF;
+  --fg: #1A2327;
+  --muted: #56666D;
+  --line: #D5DDE0;
+  --field: #FFFFFF;
+  --accent: #BE3E2D;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #F9E6E2;
+  --warn-bg: #FFF4DC;
+  --warn-fg: #6B4A00;
+  --font-body: 'Schibsted Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11181B;
+    --surface: #192125;
+    --fg: #E6ECEE;
+    --muted: #96A6AD;
+    --line: #2B373C;
+    --field: #12191C;
+    --accent: #F0705D;
+    --accent-ink: #1A0E0B;
+    --accent-soft: #3A2320;
+    --warn-bg: #3A2F12;
+    --warn-fg: #F1D48B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11181B;
+  --surface: #192125;
+  --fg: #E6ECEE;
+  --muted: #96A6AD;
+  --line: #2B373C;
+  --field: #12191C;
+  --accent: #F0705D;
+  --accent-ink: #1A0E0B;
+  --accent-soft: #3A2320;
+  --warn-bg: #3A2F12;
+  --warn-fg: #F1D48B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 28px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+
+header h1 { font-size: 26px; line-height: 1.15; margin: 0 0 6px; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 62ch; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 20px; align-items: start; }
+@media (max-width: 720px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.panel h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; }
+
+label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; }
+input, select {
+  width: 100%; font: inherit; color: var(--fg); background: var(--field);
+  border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; min-width: 0;
+}
+input { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.main-input input { font-size: 26px; padding: 10px 12px; font-weight: 500; }
+.hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+
+.settings { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 10px; }
+.settings .unit-note { font-size: 11.5px; color: var(--muted); margin: 4px 0 0; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 0; width: 100%; }
+
+.hero { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.hero .big { font-family: var(--font-mono); font-size: 64px; line-height: 1; font-weight: 500; color: var(--accent); font-variant-numeric: tabular-nums; }
+.hero .cap { font-size: 16px; font-weight: 600; }
+.plates { color: var(--muted); font-size: 14px; margin-top: -8px; }
+
+dl { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0; }
+dl > div { display: contents; }
+dt, dd { margin: 0; padding: 9px 0; border-top: 1px solid var(--line); }
+dt { color: var(--muted); font-size: 14px; padding-right: 12px; }
+dd { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 14.5px; font-weight: 500; }
+dl > div.key dt { color: var(--fg); font-weight: 600; }
+dl > div.key dd { color: var(--accent); font-weight: 600; }
+
+.recipe { background: var(--accent-soft); border-radius: 8px; padding: 14px 16px; font-size: 14.5px; }
+.recipe strong { font-family: var(--font-mono); font-weight: 500; white-space: nowrap; }
+.note { background: var(--warn-bg); color: var(--warn-fg); border-radius: 8px; padding: 10px 14px; font-size: 13.5px; }
+.err { color: var(--accent); font-weight: 600; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Cell Plating Calculator</h1>
+    <p>Enter the cells you isolated. The page returns how many wells you can seed and how much M-CSF to add so each well reaches the final concentration.</p>
+  </header>
+
+  <div class="grid">
+    <section class="panel" aria-label="Inputs">
+      <h2>Input</h2>
+      <div class="main-input">
+        <label for="cells">Cells isolated</label>
+        <div class="row" style="grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);">
+          <input id="cells" type="text" inputmode="decimal" value="12" autocomplete="off" spellcheck="false">
+          <select id="unit" aria-label="Unit">
+            <option value="1e6" selected>× 10⁶ cells</option>
+            <option value="1">cells</option>
+          </select>
+        </div>
+        <p class="hint">Scientific notation works, for example 5e6 with unit set to cells.</p>
+      </div>
+
+      <hr>
+      <h2>Protocol settings</h2>
+      <div class="settings">
+        <div>
+          <label for="cpw">Cells per well</label>
+          <input id="cpw" type="text" inputmode="decimal" value="0.7" autocomplete="off">
+          <p class="unit-note">× 10⁶ cells</p>
+        </div>
+        <div>
+          <label for="vpw">Cell suspension per well</label>
+          <input id="vpw" type="text" inputmode="decimal" value="900" autocomplete="off">
+          <p class="unit-note">µL, holds the cells</p>
+        </div>
+        <div>
+          <label for="mix">Transfection mix per well</label>
+          <input id="mix" type="text" inputmode="decimal" value="100" autocomplete="off">
+          <p class="unit-note">µL, added on top</p>
+        </div>
+        <div>
+          <label for="stock">M-CSF stock</label>
+          <input id="stock" type="text" inputmode="decimal" value="100" autocomplete="off">
+          <p class="unit-note">µg/mL</p>
+        </div>
+        <div>
+          <label for="final">M-CSF final</label>
+          <input id="final" type="text" inputmode="decimal" value="25" autocomplete="off">
+          <p class="unit-note">ng/mL</p>
+        </div>
+      </div>
+      <div>
+        <label for="over">Pipetting overage</label>
+        <input id="over" type="text" inputmode="decimal" value="10" autocomplete="off">
+        <p class="unit-note">% extra M-CSF medium to prepare. Medium and M-CSF both scale, so the concentration stays the same.</p>
+      </div>
+      <div>
+        <label for="plate">Plate format</label>
+        <select id="plate">
+          <option value="6">6-well</option>
+          <option value="12">12-well</option>
+          <option value="24" selected>24-well</option>
+          <option value="48">48-well</option>
+          <option value="96">96-well</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Results" aria-live="polite">
+      <h2>Result</h2>
+      <p id="error" class="err" hidden></p>
+      <div id="out" style="display:flex; flex-direction:column; gap:18px;">
+        <div>
+          <div class="hero"><span class="big" id="wells">0</span><span class="cap">wells</span></div>
+        </div>
+        <div class="plates" id="plates"></div>
+
+        <dl>
+          <div><dt>Cells used</dt><dd id="used"></dd></div>
+          <div><dt>Cells left over</dt><dd id="left"></dd></div>
+          <div><dt>Seeding density (suspension)</dt><dd id="dens"></dd></div>
+          <div><dt>Cell suspension needed, total</dt><dd id="vtot"></dd></div>
+          <div><dt>M-CSF medium to prepare</dt><dd id="vprep"></dd></div>
+          <div class="key"><dt>Medium (without M-CSF)</dt><dd id="med"></dd></div>
+          <div class="key"><dt>M-CSF stock to add</dt><dd id="mtot"></dd></div>
+          <div><dt>Transfection mix, total</dt><dd id="mixtot"></dd></div>
+          <div><dt>Final volume per well</dt><dd id="vfin"></dd></div>
+          <div><dt>M-CSF stock per well, no overage</dt><dd id="mwell"></dd></div>
+          <div><dt>M-CSF in suspension, before mix</dt><dd id="msus"></dd></div>
+          <div><dt>Dilution of stock (final volume)</dt><dd id="df"></dd></div>
+        </dl>
+
+        <div class="recipe" id="recipe"></div>
+        <div class="note" id="note" hidden></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var ids = ['cells', 'unit', 'cpw', 'vpw', 'mix', 'stock', 'final', 'over', 'plate'];
+
+  function parse(id) {
+    var s = String($(id).value).trim().replace(/,/g, '');
+    if (s === '') return NaN;
+    return Number(s);
+  }
+  function vol(ul) {
+    if (ul >= 1000) return (ul / 1000).toFixed(2) + ' mL';
+    if (ul >= 10) return ul.toFixed(1) + ' µL';
+    if (ul >= 1) return ul.toFixed(2) + ' µL';
+    return ul.toFixed(3) + ' µL';
+  }
+  function cellsFmt(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + ' × 10⁶';
+    return Math.round(n).toLocaleString('en-US');
+  }
+  function sci(n) {
+    return Math.round(n).toLocaleString('en-US') + ' /mL';
+  }
+
+  function run() {
+    var unit = Number($('unit').value);
+    var cells = parse('cells') * unit;
+    var cpw = parse('cpw') * 1e6;
+    var vpw = parse('vpw');       // µL cell suspension per well
+    var mix = parse('mix');       // µL transfection mix per well
+    var stock = parse('stock');   // µg/mL
+    var fin = parse('final');     // ng/mL
+    var plate = Number($('plate').value);
+
+    var over = parse('over');     // % overage on the M-CSF medium
+    var bad = [cells, cpw, vpw, stock, fin].some(function (v) { return !isFinite(v) || v <= 0; }) ||
+      !isFinite(mix) || mix < 0 || !isFinite(over) || over < 0;
+    $('error').hidden = !bad;
+    $('out').hidden = bad;
+    if (bad) { $('error').textContent = 'Enter a number above zero in every field.'; return; }
+
+    var wells = Math.floor(cells / cpw + 1e-9);
+    var used = wells * cpw;
+    var left = Math.max(0, cells - used);
+    var vwell = vpw + mix;                  // µL final per well
+    var vtot = wells * vpw;                 // µL cell suspension
+    var mixtot = wells * mix;               // µL transfection mix
+    var vfinal = wells * vwell;             // µL final, all wells
+    var df = (stock * 1000) / fin;          // stock ng/mL ÷ final ng/mL
+    var mwell = vwell / df;                 // µL stock per well, no overage
+    var msus = fin * vwell / vpw;           // ng/mL in suspension before the mix is added
+    var vprep = vtot * (1 + over / 100);    // µL M-CSF medium to prepare, with overage
+    var mtot = vprep * msus / (stock * 1000); // µL stock, keeps msus in the prepared medium
+    var med = vprep - mtot;                 // µL plain medium
+
+    $('wells').textContent = wells;
+
+    var p = '';
+    if (wells > 0) {
+      var full = Math.floor(wells / plate), rem = wells % plate;
+      if (full === 0) p = 'Fits on part of one ' + plate + '-well plate.';
+      else if (rem === 0) p = full + ' full ' + plate + '-well plate' + (full > 1 ? 's' : '') + '.';
+      else p = full + ' full ' + plate + '-well plate' + (full > 1 ? 's' : '') + ' + ' + rem + ' well' + (rem > 1 ? 's' : '') + '.';
+    } else {
+      p = 'You need at least ' + cellsFmt(cpw) + ' cells for one well.';
+    }
+    $('plates').textContent = p;
+
+    $('used').textContent = cellsFmt(used);
+    $('left').textContent = cellsFmt(left);
+    $('dens').textContent = sci(cpw / (vpw / 1000));
+    $('vtot').textContent = vol(vtot);
+    $('vprep').textContent = vol(vprep);
+    $('med').textContent = vol(med);
+    $('mixtot').textContent = vol(mixtot);
+    $('vfin').textContent = vol(vwell);
+    $('msus').textContent = msus.toFixed(1) + ' ng/mL';
+    $('mtot').textContent = vol(mtot);
+    $('mwell').textContent = vol(mwell);
+    $('df').textContent = '1 : ' + (df % 1 === 0 ? df : df.toFixed(1));
+
+    var r = $('recipe');
+    if (wells > 0) {
+      r.innerHTML = 'Mix <strong>' + vol(med) + '</strong> medium with <strong>' + vol(mtot) + '</strong> of ' + stock +
+        ' µg/mL M-CSF (<strong>' + vol(vprep) + '</strong> total, including ' + over + '% overage). Resuspend <strong>' +
+        cellsFmt(used) + ' cells</strong> in <strong>' + vol(vtot) + '</strong> of it. Plate <strong>' +
+        vol(vpw) + '</strong> per well, then add <strong>' + vol(mix) + '</strong> transfection mix to reach <strong>' +
+        vol(vwell) + '</strong> and ' + fin + ' ng/mL.';
+    } else {
+      r.textContent = 'No wells can be seeded at this cell number.';
+    }
+
+    var note = $('note');
+    if (wells > 0 && mtot < 5) {
+      var inter = mtot * 10;
+      note.hidden = false;
+      note.textContent = 'The stock volume is under 5 µL, which is hard to pipette accurately. Dilute the stock 1:10 (1 part stock + 9 parts medium) to ' +
+        (stock / 10) + ' µg/mL and add ' + vol(inter) + ' of that instead.';
+    } else {
+      note.hidden = true;
+    }
+  }
+
+  ids.forEach(function (id) {
+    $(id).addEventListener('input', run);
+    $(id).addEventListener('change', run);
+  });
+  run();
+})();
+</script>
+</body>
+</html>
