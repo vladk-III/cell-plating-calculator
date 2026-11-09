@@ -190,9 +190,9 @@ dl > div.key dd { color: var(--accent); font-weight: 600; }
         </div>
       </div>
       <div>
-        <label for="over">Pipetting overage</label>
+        <label for="over">Spare for pipetting error</label>
         <input id="over" type="text" inputmode="decimal" value="10" autocomplete="off">
-        <p class="unit-note">% extra M-CSF medium to prepare. Medium and M-CSF both scale, so the concentration stays the same.</p>
+        <p class="unit-note">% extra cells and volume held back. All isolated cells are resuspended, so this spare comes out of the total and lowers the well count.</p>
       </div>
       <div>
         <label for="plate">Plate format</label>
@@ -216,14 +216,15 @@ dl > div.key dd { color: var(--accent); font-weight: 600; }
         <div class="plates" id="plates"></div>
 
         <dl>
-          <div><dt>Cells used</dt><dd id="used"></dd></div>
-          <div><dt>Cells left over</dt><dd id="left"></dd></div>
+          <div><dt>Cells resuspended (all)</dt><dd id="used"></dd></div>
           <div><dt>Seeding density (suspension)</dt><dd id="dens"></dd></div>
-          <div><dt>Cell suspension needed, total</dt><dd id="vtot"></dd></div>
-          <div><dt>M-CSF medium to prepare</dt><dd id="vprep"></dd></div>
+          <div class="key"><dt>Resuspension volume (M-CSF medium)</dt><dd id="vprep"></dd></div>
           <div class="key"><dt>Medium (without M-CSF)</dt><dd id="med"></dd></div>
           <div class="key"><dt>M-CSF stock to add</dt><dd id="mtot"></dd></div>
-          <div><dt>Transfection mix, total</dt><dd id="mixtot"></dd></div>
+          <div><dt>Suspension used by the wells</dt><dd id="vtot"></dd></div>
+          <div><dt>Spare cells</dt><dd id="left"></dd></div>
+          <div><dt>Spare volume</dt><dd id="spare"></dd></div>
+          <div><dt>Transfection mix, wells only</dt><dd id="mixtot"></dd></div>
           <div><dt>Final volume per well</dt><dd id="vfin"></dd></div>
           <div><dt>M-CSF stock per well, no overage</dt><dd id="mwell"></dd></div>
           <div><dt>M-CSF in suspension, before mix</dt><dd id="msus"></dd></div>
@@ -278,9 +279,11 @@ dl > div.key dd { color: var(--accent); font-weight: 600; }
     $('out').hidden = bad;
     if (bad) { $('error').textContent = 'Enter a number above zero in every field.'; return; }
 
-    var wells = Math.floor(cells / cpw + 1e-9);
-    var used = wells * cpw;
-    var left = Math.max(0, cells - used);
+    // All isolated cells go into the M-CSF medium at the seeding density.
+    // The spare percentage is held back, so wells = cells / (cells per well × (1 + spare)).
+    var wells = Math.floor(cells / (cpw * (1 + over / 100)) + 1e-9);
+    var used = cells;                       // every cell is resuspended
+    var left = Math.max(0, cells - wells * cpw);   // spare cells after the wells are seeded
     var vwell = vpw + mix;                  // µL final per well
     var vtot = wells * vpw;                 // µL cell suspension
     var mixtot = wells * mix;               // µL transfection mix
@@ -288,8 +291,9 @@ dl > div.key dd { color: var(--accent); font-weight: 600; }
     var df = (stock * 1000) / fin;          // stock ng/mL ÷ final ng/mL
     var mwell = vwell / df;                 // µL stock per well, no overage
     var msus = fin * vwell / vpw;           // ng/mL in suspension before the mix is added
-    var vprep = vtot * (1 + over / 100);    // µL M-CSF medium to prepare, with overage
-    var mtot = vprep * msus / (stock * 1000); // µL stock, keeps msus in the prepared medium
+    var vprep = cells / cpw * vpw;          // µL to resuspend all cells at the seeding density
+    var spare = Math.max(0, vprep - vtot);  // µL left after the wells are filled
+    var mtot = vprep * msus / (stock * 1000); // µL stock, keeps msus in the whole volume
     var med = vprep - mtot;                 // µL plain medium
 
     $('wells').textContent = wells;
@@ -301,12 +305,13 @@ dl > div.key dd { color: var(--accent); font-weight: 600; }
       else if (rem === 0) p = full + ' full ' + plate + '-well plate' + (full > 1 ? 's' : '') + '.';
       else p = full + ' full ' + plate + '-well plate' + (full > 1 ? 's' : '') + ' + ' + rem + ' well' + (rem > 1 ? 's' : '') + '.';
     } else {
-      p = 'You need at least ' + cellsFmt(cpw) + ' cells for one well.';
+      p = 'You need at least ' + cellsFmt(cpw * (1 + over / 100)) + ' cells for one well plus the spare.';
     }
     $('plates').textContent = p;
 
     $('used').textContent = cellsFmt(used);
     $('left').textContent = cellsFmt(left);
+    $('spare').textContent = vol(spare);
     $('dens').textContent = sci(cpw / (vpw / 1000));
     $('vtot').textContent = vol(vtot);
     $('vprep').textContent = vol(vprep);
@@ -321,12 +326,13 @@ dl > div.key dd { color: var(--accent); font-weight: 600; }
     var r = $('recipe');
     if (wells > 0) {
       r.innerHTML = 'Mix <strong>' + vol(med) + '</strong> medium with <strong>' + vol(mtot) + '</strong> of ' + stock +
-        ' µg/mL M-CSF (<strong>' + vol(vprep) + '</strong> total, including ' + over + '% overage). Resuspend <strong>' +
-        cellsFmt(used) + ' cells</strong> in <strong>' + vol(vtot) + '</strong> of it. Plate <strong>' +
-        vol(vpw) + '</strong> per well, then add <strong>' + vol(mix) + '</strong> transfection mix to reach <strong>' +
-        vol(vwell) + '</strong> and ' + fin + ' ng/mL.';
+        ' µg/mL M-CSF (<strong>' + vol(vprep) + '</strong> total). Resuspend all <strong>' +
+        cellsFmt(used) + ' cells</strong> in it. Plate <strong>' +
+        vol(vpw) + '</strong> per well in <strong>' + wells + '</strong> wells, then add <strong>' + vol(mix) +
+        '</strong> transfection mix to reach <strong>' + vol(vwell) + '</strong> and ' + fin + ' ng/mL. About <strong>' +
+        vol(spare) + '</strong> and <strong>' + cellsFmt(left) + ' cells</strong> stay in the tube as spare.';
     } else {
-      r.textContent = 'No wells can be seeded at this cell number.';
+      r.textContent = 'No wells can be seeded at this cell number with this much spare held back.';
     }
 
     var note = $('note');
