@@ -1,6 +1,6 @@
 // Caches the app so it opens offline after the first visit.
 // Bump VERSION whenever you change any file, so installed copies update.
-const VERSION = 'plating-v2';
+const VERSION = 'plating-v3';
 const FILES = [
   './',
   'index.html',
